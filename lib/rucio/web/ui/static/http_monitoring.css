@@ -1,0 +1,68 @@
+.ui-datepicker-inline {
+  min-width: 100%;
+  border: 2px solid #efefef;
+  }
+
+ #datepicker {
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+td.align-right {
+  text-align: right;
+}
+
+.chart-wrapper {
+  padding-top: 20px;
+  padding-bottom: 0px;
+  border: 2px solid #efefef;
+  border-radius: 7px;
+  min-height: 500px;
+}
+
+.chart-wrapper-details {
+}
+
+.chart-wrapper-details > div{
+  width: 100%;
+}
+
+.rucio-slider-header {
+  color: #888;
+  font-size: 3em;
+  margin-bottom: 0;
+  text-align: center;
+  width: 100%;
+}
+
+.report-header {
+  color: #888;
+  padding-top: 0.2em;
+  font-size: 2.5em;
+  margin-bottom: 0;
+  text-align: center;
+  width: 100%;
+}
+
+.chart > img {
+  height: 100px;
+  width: 100px;
+}
+
+.spinner {
+}
+
+.row {
+  padding-bottom: 10px;
+}
+
+.tabs .tab-title.active a {
+  background-color: #d1d1d1;
+}
+
+.vertical-menu {
+}
+
+.vertical-menu * {
+  min-width: 100%;
+}

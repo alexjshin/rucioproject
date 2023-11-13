@@ -1,0 +1,37 @@
+dists:
+  - id: fedora35
+    allow:
+      python:
+        - "3.10"
+  - id: alma9
+    allow:
+      python:
+        - "3.9"
+python:
+  - "3.9"
+  - "3.10"
+suites:
+  - id: syntax
+    SYNTAX_REPORT: 1
+    RUN_HTTPD: false
+  - id: docs
+    RUN_HTTPD: false
+  - id: client_syntax
+    RUN_HTTPD: false
+  - id: client
+    RDBMS: postgres14
+  - id: remote_dbs
+    RDBMS:
+      - oracle
+      - mysql8
+      - postgres14
+    services:
+      - influxdb_elastic
+  - id: sqlite
+    RDBMS:
+      - sqlite
+  - id: multi_vo
+    RDBMS: postgres14
+    RUCIO_HOME: /opt/rucio/etc/multi_vo/tst
+image_identifier:
+  - autotest
