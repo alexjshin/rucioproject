@@ -145,7 +145,7 @@ class RSESelector():
         :returns:                            List of (RSE_id, staging_area, availability_write) tuples.
         :raises:                             InsufficientAccountLimit, InsufficientTargetRSEs
         """
-        return self.selector.select_rse(self.rses, self.copies, size, preferred_rse_ids, copies=0, blocklist=[], prioritize_order_over_weight=False, existing_rse_size=None)
+        return self.selector.select_rse(self.rses, self.copies, size, preferred_rse_ids, copies, blocklist, prioritize_order_over_weight, existing_rse_size)
 
 @read_session
 def resolve_rse_expression(rse_expression, account, weight=None, copies=1, ignore_account_limit=False, size=0, preferred_rses=[], blocklist=[], prioritize_order_over_weight=False, existing_rse_size=None, *, session: "Session"):
