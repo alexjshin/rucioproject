@@ -20,6 +20,7 @@ from rucio.common.exception import InsufficientAccountLimit, InsufficientTargetR
 from rucio.core.account_counter import update_account_counter, increase
 from rucio.core.account_limit import set_local_account_limit, set_global_account_limit
 from rucio.core.rse_selector import RSESelector
+from rucio.core import rse as rse_module
 
 
 @pytest.fixture
@@ -31,6 +32,43 @@ def test_rses(rse_factory):
     rse2 = {'id': rse2_id, 'staging_area': False}
 
     return rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2
+
+@pytest.fixture
+def test_rses_cloud_five(rse_factory):
+    rse1_name, rse1_id = rse_factory.make_mock_cloud_rse()
+    rse2_name, rse2_id = rse_factory.make_mock_cloud_rse()
+    rse3_name, rse3_id = rse_factory.make_mock_cloud_rse()
+    rse4_name, rse4_id = rse_factory.make_mock_cloud_rse()
+    rse5_name, rse5_id = rse_factory.make_mock_cloud_rse()
+
+    rse1 = {'id': rse1_id, 'cloud': True, 'storage_cost_per_gb': 0.1, 'data_transfer_cost_per_gb': 0.09, 'data_access_cost_per_gb': 0.01, 'staging_area': False}
+    rse2 = {'id': rse2_id, 'cloud': True, 'storage_cost_per_gb': 0.11, 'data_transfer_cost_per_gb': 0.092, 'data_access_cost_per_gb': 0.007, 'staging_area': False}
+    rse3 = {'id': rse3_id, 'cloud': True, 'storage_cost_per_gb': 0.09, 'data_transfer_cost_per_gb': 0.101, 'data_access_cost_per_gb': 0.004, 'staging_area': False}
+    rse4 = {'id': rse4_id, 'cloud': True, 'storage_cost_per_gb': 0.095, 'data_transfer_cost_per_gb': 0.878, 'data_access_cost_per_gb': 0.0098, 'staging_area': False}
+    rse5 = {'id': rse5_id, 'cloud': True, 'storage_cost_per_gb': 0.085, 'data_transfer_cost_per_gb': 0.891, 'data_access_cost_per_gb': 0.008, 'staging_area': False}
+
+    rse_module.add_rse_attribute(rse1_id, 'cloud', 'True'); 
+    rse_module.add_rse_attribute(rse2_id, 'cloud', 'True'); 
+    rse_module.add_rse_attribute(rse3_id, 'cloud', 'True'); 
+    rse_module.add_rse_attribute(rse4_id, 'cloud', 'True'); 
+    rse_module.add_rse_attribute(rse5_id, 'cloud', 'True'); 
+
+    return rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2, rse3_name, rse3_id, rse3, rse4_name, rse4_id, rse4, rse5_name, rse5_id, rse5
+
+@pytest.fixture
+def test_rses_cloud_two(rse_factory):
+    rse1_name, rse1_id = rse_factory.make_mock_cloud_rse()
+    rse2_name, rse2_id = rse_factory.make_mock_cloud_rse()
+
+    rse1 = {'id': rse1_id, 'cloud': True, 'storage_cost_per_gb': 0.1, 'data_transfer_cost_per_gb': 0.09, 'data_access_cost_per_gb': 0.01, 'staging_area': False}
+    rse2 = {'id': rse2_id, 'cloud': True, 'storage_cost_per_gb': 0.11, 'data_transfer_cost_per_gb': 0.092, 'data_access_cost_per_gb': 0.007, 'staging_area': False}
+
+    rse_module.add_rse_attribute(rse1_id, 'cloud', 'True'); 
+    rse_module.add_rse_attribute(rse2_id, 'cloud', 'True'); 
+
+    return rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2
+
+
 
 
 class TestRSESelectorInit:
@@ -105,6 +143,49 @@ class TestRSESelectorInit:
         rse_selector = RSESelector(random_account, rses, None, copies)
         assert len(rse_selector.rses) == 1
 
+    def test_7(self, random_account, test_rses_cloud_two):
+        # enough RSEs, local and global quota -> 2 RSEs
+        rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2 = test_rses_cloud_two
+        set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=20)
+        set_global_account_limit(account=random_account, rse_expression=rse2_name, bytes_=20)
+        set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=20)
+        set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=20)
+        copies = 2
+        rses = [rse1, rse2]
+        rse_selector = RSESelector(random_account, rses, 'cloud', copies)
+
+        selected_rses = rse_selector.select_rse(10, [])
+        assert len(rse_selector.rses) == 2
+
+    def test_8(self, random_account, test_rses_cloud_five):
+        # enough RSEs, local and global quota -> 2 RSEs
+        rse1_name, rse1_id, rse1, rse2_name, rse2_id, rse2, rse3_name, rse3_id, rse3, rse4_name, rse4_id, rse4, rse5_name, rse5_id, rse5 = test_rses_cloud_five
+        set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=20)
+        set_global_account_limit(account=random_account, rse_expression=rse1_name, bytes_=20)
+        set_global_account_limit(account=random_account, rse_expression=rse3_name, bytes_=20)
+        set_global_account_limit(account=random_account, rse_expression=rse4_name, bytes_=20)
+        set_global_account_limit(account=random_account, rse_expression=rse5_name, bytes_=20)
+
+        set_local_account_limit(account=random_account, rse_id=rse1_id, bytes_=20)
+        set_local_account_limit(account=random_account, rse_id=rse2_id, bytes_=20)
+        set_local_account_limit(account=random_account, rse_id=rse3_id, bytes_=20)
+        set_local_account_limit(account=random_account, rse_id=rse4_id, bytes_=20)
+        set_local_account_limit(account=random_account, rse_id=rse5_id, bytes_=20)
+        copies = 2
+        rse_dict = {rse1_id: rse1, rse2_id: rse2, rse3_id: rse3, rse4_id: rse4, rse5_id: rse5}
+        rses = [rse1, rse2, rse3, rse4, rse5]
+        rse_selector = RSESelector(random_account, rses, 'cloud', copies)
+
+        selected_rses = rse_selector.select_rse(10, [])
+        for selected_rse in selected_rses:
+            rse_id = selected_rse[0]
+            rse = rse_dict[rse_id]
+            # import pdb; pdb.set_trace()
+            print(f"storage cost/GB: {rse['storage_cost_per_gb']}")
+            print(f"data transfer cost/GB: {rse['data_transfer_cost_per_gb']}")
+            print(f"data access cost/GB: {rse['data_access_cost_per_gb']}")
+
+        assert len(selected_rses) == 2
 
 class TestRSESelectorDynamic:
 

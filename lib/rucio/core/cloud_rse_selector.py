@@ -35,56 +35,33 @@ def costWrapper(file_size):
         storage_cost = file_size * rse['storage_cost_per_gb']
         data_transfer_cost = READ_FREQUENCY * file_size * rse['data_transfer_cost_per_gb'] 
         data_access_cost = READ_FREQUENCY * rse['data_access_cost_per_gb'] 
+        return storage_cost + data_transfer_cost + data_access_cost
     
     return getRSECost
 
-def calculate_minimal_cost(Gs, file_size):
-    """
-    Calculate the minimal cost for storing and reading data from a set of clouds.
-    Assuming cost is a function of file size, read frequency, and individual cloud costs.
-    """
-    total_cost = 0
-    for cloud in Gs:
-        storage_cost = file_size * cloud['storage_cost_per_gb']
-        data_transfer_cost = READ_FREQUENCY * file_size * cloud['data_transfer_cost_per_gb'] 
-        data_access_cost = READ_FREQUENCY * cloud['data_access_cost_per_gb'] 
-        total_cost += storage_cost + data_transfer_cost + data_access_cost
-    return total_cost
+# def calculate_minimal_cost(Gs, file_size):
+#     """
+#     Calculate the minimal cost for storing and reading data from a set of clouds.
+#     Assuming cost is a function of file size, read frequency, and individual cloud costs.
+#     """
+#     total_cost = 0
+#     for cloud in Gs:
+#         storage_cost = file_size * cloud['storage_cost_per_gb']
+#         data_transfer_cost = READ_FREQUENCY * file_size * cloud['data_transfer_cost_per_gb'] 
+#         data_access_cost = READ_FREQUENCY * cloud['data_access_cost_per_gb'] 
+#         total_cost += storage_cost + data_transfer_cost + data_access_cost
+#     return total_cost
 
-def sort_clouds_by_price(rses, file_size):
-    rses.sort(key=costWrapper(file_size))
-    return rses
+# def sort_clouds_by_price(rses, file_size):
+#     rses.sort(key=costWrapper(file_size))
+#     return rses
 
-def heuristic_algorithm_of_data_placement(n, rses, file_size):
-    Csm = float('inf')
-    c = set()
+def calculate_weights(rses, file_size):
+    
+    costFunction = costWrapper(file_size)
 
-    # Sort clouds by price
-    Ls = sort_clouds_by_price(rses, file_size)
-
-    Gs = Ls[:n]  # The first n clouds of Ls
-    Gc = list(set(Ls) - set(Gs))
-
-    for m in range(1, n + 1):
-        Ccur = calculate_minimal_cost(Gs, file_size)
-        if Ccur < Csm:
-            Csm = Ccur
-            c = Gs
-        else:
-            # Heuristically search for a better solution
-            Gs.sort(key=lambda x: x.ai, reverse=True)
-            Gc.sort(key=lambda x: x.price)
-
-            for i in range(n):
-                flag = 0
-                for j in range(len(Gc)):
-                    if Gc[j].availability > Gs[i].availability:
-                        Gs[i], Gc[j] = Gc[j], Gs[i]
-                        flag = 1
-                        break
-                if flag == 0:
-                    break
-    return Csm, c
+    for rse in rses:
+        rse['weight'] = 1.0 / costFunction(rse)
 
 
 class CloudSelector():
@@ -104,8 +81,11 @@ class CloudSelector():
             result_rses.append({'rse_id': rse['id'],
                                 'mock_rse': attributes.get('mock', False),
                                 'availability_write': availability_write,
-                                'staging_area': rse['staging_area']})
-    
+                                'staging_area': rse['staging_area'], 
+                                'storage_cost_per_gb': rse['storage_cost_per_gb'], 
+                                'data_transfer_cost_per_gb': rse['data_transfer_cost_per_gb'], 
+                                'data_access_cost_per_gb': rse['data_access_cost_per_gb']})
+
         return result_rses
 
     def select_rse(self, rses, copies, size, preferred_rse_ids, num_copies=0, blocklist=[], prioritize_order_over_weight=False, existing_rse_size=None):
@@ -121,7 +101,7 @@ class CloudSelector():
         :returns:                            List of (RSE_id, staging_area, availability_write) tuples.
         :raises:                             InsufficientAccountLimit, InsufficientTargetRSEs
         """
-
+        result = []
         count = copies if num_copies == 0 else num_copies
 
         # Remove blocklisted rses
@@ -156,10 +136,57 @@ class CloudSelector():
         if len(rses) < count:
             raise InsufficientAccountLimit('There is insufficient quota on any of the target RSE\'s to fullfill the operation.')
         
-        cost, selected_rses = heuristic_algorithm_of_data_placement(count, rses, size)
-        return selected_rses 
+        calculate_weights(rses, size)
 
+        for copy in range(count):
+            # Remove rses already in the result set
+            rses = [rse for rse in rses if rse['rse_id'] not in [item[0] for item in result]]
+            rses_dict = {}
+            for rse in rses:
+                rses_dict[rse['rse_id']] = rse
+            # Prioritize the preffered rses
+            preferred_rses = [rses_dict[rse_id] for rse_id in preferred_rse_ids if rse_id in rses_dict]
+            if prioritize_order_over_weight and preferred_rses:
+                rse = (preferred_rses[0]['rse_id'], preferred_rses[0]['staging_area'], preferred_rses[0]['availability_write'])
+            elif preferred_rses:
+                rse = self.__choose_rse(preferred_rses)
+            else:
+                rse = self.__choose_rse(rses)
+            result.append(rse)
+            self.__update_quota(rses, rse, size)
+        return result
+    
+    def __update_quota(self, rses, rse, size):
+        """
+        Update the internal quota value.
 
+        :param rse:      RSE tuple to update.
+        :param size:     Size to substract.
+        """
+
+        for element in rses:
+            if element['rse_id'] == rse[0]:
+                element['quota_left'] -= size
+                for rse_expression in element.get('global_quota_left', []):
+                    element['global_quota_left'][rse_expression] -= size
+                return
+
+    def __choose_rse(self, rses):
+        """
+        Choose an RSE based on weighting.
+
+        :param rses:  The rses to be considered for the choose.
+        :return:      The (rse_id, staging_area) tuple of the chosen RSE.
+        """
+
+        shuffle(rses)
+        pick = uniform(0, sum([rse['weight'] for rse in rses]))
+        weight = 0
+        for rse in rses:
+            weight += rse['weight']
+            if pick <= weight:
+                return (rse['rse_id'], rse['staging_area'], rse['availability_write'])  
+    
     
 #     import numpy as np
 

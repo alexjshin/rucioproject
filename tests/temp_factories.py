@@ -122,6 +122,9 @@ class TemporaryRSEFactory:
 
     def make_mock_rse(self, session=None, **kwargs):
         return self._make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.mock.Default', add_rse_kwargs=kwargs, session=session)
+    
+    def make_mock_cloud_rse(self, session=None, **kwargs):
+        return self._make_rse(scheme='mock', protocol_impl='rucio.rse.protocols.mock.Default', add_rse_kwargs=kwargs, session=session)
 
     def make_xroot_rse(self, session=None, **kwargs):
         return self._make_rse(scheme='root', protocol_impl='rucio.rse.protocols.xrootd.Default', add_rse_kwargs=kwargs, session=session)
